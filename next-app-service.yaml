@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: solar-next-app-service
+spec:
+  type: ClusterIP
+  selector:
+    app: solar-next-app
+  ports:
+    - port: 3000
+      targetPort: 3000

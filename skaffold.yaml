@@ -1,0 +1,22 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: next-app
+build:
+  artifacts:
+    - image: solar-next-app-dev
+      context: .
+      docker:
+        dockerfile: Dockerfile.dev
+  local:
+    push: false
+manifests:
+  rawYaml:
+    - next-app-deployment.yaml
+    - next-app-service.yaml
+deploy:
+  kubectl: {}
+portForward:
+  - resourceType: service
+    resourceName: solar-next-app-service
+    port: 3000

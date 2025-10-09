@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: solar-next-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: solar-next-app
+  template:
+    metadata:
+      labels:
+        app: solar-next-app
+    spec:
+      containers:
+        - name: solar-next-app
+          image: solar-next-app-dev
+          ports:
+            - containerPort: 3000
