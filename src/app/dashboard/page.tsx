@@ -47,6 +47,7 @@ export default function DashboardPage() {
 
   const [isExpandedModalOpen, setIsExpandedModalOpen] = useState(false);
   const [isExpandedModeOn, setIsExpandedModeOn] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const [isCommonModalOpen, setCommonModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("List view");
@@ -120,19 +121,7 @@ export default function DashboardPage() {
       console.log("LAYOUTS updated:", layouts);
       console.log("Current layout lg:", layouts.lg?.map(i => i.i));
     }, [layouts]);
-
-
-
-    // const initial = defaultMetrics.map((metric, index) => ({
-    //   i: metric,
-    //   x: index % 5,
-    //   y: Math.floor(index / 5),
-    //   w: 1,
-    //   h: 2,
-    // }));
-    // return { lg: initial, md: initial, sm: initial, xs: initial };
-  // });
-
+    
   const [filterOptions, setFilterOptions] = useState({
     DealboardTeam: [] as string[],
     Function: [] as string[],
@@ -637,7 +626,7 @@ export default function DashboardPage() {
 console.log("Current layout lg:", layouts.lg?.map(i => i.i));
   return (
     <div className="bg-black min-h-screen text-white">
-      <Sidebar isMobileOpen={isMobileOpen} setMobileOpen={setMobileOpen} />
+      <Sidebar isMobileOpen={isMobileOpen} setMobileOpen={setMobileOpen}  isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
       <div className="lg:ml-64 p-4">
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
