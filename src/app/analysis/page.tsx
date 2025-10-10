@@ -18,6 +18,7 @@ import FilterModal from "../../../components/FilterModal";
 import DropdownSettings from "../../../components/DropdownSettings";
 import ToggleModal from "../../../components/ToggleModal";
 import ExpandedModeModal from "../../../components/ExpandedModeModal";
+import ExportDropdown from "../../../components/ExportDropdown";
 
 import { Bars3Icon } from "@heroicons/react/24/solid";
 
@@ -187,7 +188,9 @@ export default function AnalysisPage() {
             onExpandedModeClick={() => setIsExpandedModalOpen(true)}
           />
         </div>
-
+        <div className="flex justify-between items-center mb-6">
+          <ExportDropdown />
+        </div>
         {/* Filter / Modals */}
         <FilterModal
           isOpen={isFilterOpen}
