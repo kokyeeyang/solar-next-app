@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
         - name: solar-next-app
-          image: solar-next-app-dev
+          image: solar-next-app-dev:latest   # ✅ EXACT match from `docker images`
+          imagePullPolicy: Never 
           ports:
             - containerPort: 3000

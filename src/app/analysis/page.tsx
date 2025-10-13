@@ -39,7 +39,7 @@ export default function AnalysisPage() {
   const today = new Date();
   const startOfYear = new Date(today.getFullYear(), 0, 1);
 
-  const [dateRange, setDateRange] = useState<[Date, Date]>([startOfYear, today]);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([startOfYear, today]);
   const [isFilterOpen, setFilterOpen] = useState(false);
   const [isAssociatedModalOpen, setIsAssociatedModalOpen] = useState(false);
   const [isAssociatedModeOn, setIsAssociatedModeOn] = useState(false);
@@ -58,6 +58,9 @@ export default function AnalysisPage() {
     Consultant: [] as { label: string; value: string }[],
   });
 
+  interface DateRangePickerProps {
+    onChange: (dateRange: [Date | null, Date | null]) => void;
+  }
   const formatDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 

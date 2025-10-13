@@ -4,7 +4,11 @@ import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-export default function DateRangePicker({ onChange }) {
+interface DateRangePickerProps {
+  onChange: (dateRange: [Date | null, Date | null]) => void;
+}
+
+export default function DateRangePicker({ onChange }: DateRangePickerProps) {
   const today = new Date();
   const startOfYear = new Date(today.getFullYear(), 0, 1);
 
@@ -17,9 +21,9 @@ export default function DateRangePicker({ onChange }) {
         selectsRange
         startDate={startDate}
         endDate={endDate}
-        onChange={(update) => {
+        onChange={(update: [Date | null, Date | null]) => {
           setDateRange(update);
-          onChange(update);
+          onChange(update); // ✅ now correctly typed
         }}
         isClearable
         placeholderText="Select date range"
