@@ -2,29 +2,32 @@ name: Daily ETL Job
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # Every day at 2:00 AM UTC
-  workflow_dispatch:       # (Optional) allow manual run from Actions tab
+    - cron: "0 2 * * *"   # every day at 2am UTC
+  workflow_dispatch:
 
 jobs:
   run-etl:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout repo
         uses: actions/checkout@v4
 
-      - name: 🟢 Set up Node.js
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install backend dependencies
+        working-directory: server
         run: npm ci
 
       - name: 🗄️ Run ETL script
+        working-directory: server
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_NAME: ${{ secrets.DB_NAME }}
-        run: node server/etl/dailyMetricsETL.js
+          DB_PORT: ${{ secrets.DB_PORT }}
+        run: node etl/dailyMetricsETL.js
