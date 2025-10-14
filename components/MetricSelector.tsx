@@ -1,8 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
-// const METRICS = ["Candidate Calls", "Candidates Added", "Jobs Added", "Cvs Sent", "Interviews", "Client Calls", "Companies Added", "Contacts Added", "Spec CVs"];
-
 const resizableMetrics = ["Candidate Calls", "Candidates Added", "Jobs Added", "Cvs Sent", "Interviews", "Client Calls", "Companies Added", "Contacts Added", "Spec CVs"];
 
 const fixedMetrics = ["Candidates with multiple interviews (CMI)", "A Jobs with multiple interviews (JMI)", "Ratios"];
