@@ -26,6 +26,13 @@ export const query = async (sql, params) => {
   return rows;
 };
 
+export const reportingDB = await mysql.createConnection({
+  host: "localhost", // or Railway host
+  user: "root",
+  password: "Allthebest1994!",
+  database: "reporting_db",
+});
+
 pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
