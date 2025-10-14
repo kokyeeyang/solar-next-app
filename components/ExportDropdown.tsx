@@ -10,6 +10,10 @@ export default function ExportDropdown(){
         window.open(`${baseUrl}/api/jobs-to-cvs-sent/export`, "_blank");
     }
 
+    const exportUnfilledAJobs = () => {
+        window.open(`${baseUrl}/api/unfilled-a-jobs/export`, "_blank");
+    }
+
     return (
         <div className="relative inline-block text-left">
             <button 
@@ -37,6 +41,14 @@ export default function ExportDropdown(){
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 transition"
                     >
                         📄 Export Jobs Added to CVs Sent Data
+                    </button>
+                    </li>
+                    <li>
+                    <button
+                        onClick={exportUnfilledAJobs}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 transition"
+                    >
+                        📄 Export Unfilled A Jobs Data
                     </button>
                     </li>
                 </ul>

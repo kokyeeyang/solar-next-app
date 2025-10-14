@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import jobsToCvsSentRouter from "./routes/jobsToCvsSent.js";
+import unfilledAJobsRouter from "./routes/unfilledAJobs.js";
 import { connectDB } from "./db/connection.js";
 
 dotenv.config();
@@ -15,6 +16,7 @@ await connectDB();
 
 // API routes
 app.use("/api/jobs-to-cvs-sent", jobsToCvsSentRouter);
+app.use("/api/unfilled-a-jobs", unfilledAJobsRouter);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend running 🚀"));

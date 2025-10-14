@@ -135,6 +135,7 @@ router.get("/export", async (req, res) => {
     res.attachment("jobs_to_cvs_sent.csv");
     res.send(csv);
 });
+
 router.get("/chart", async (req, res) => {
   try {
     // Reuse filters for consistency
