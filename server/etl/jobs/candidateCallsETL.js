@@ -1,36 +1,29 @@
 // server/etl/jobs/candidateCallsETL.js
-import { reportingDB } from "../../db/connection.js";
-import {
-  START_DATE,
-  END_DATE,
-  MAX_CONCURRENCY,
-  BATCH_SIZE,
-} from "../ETLConfig.js";
-import { processInBatches } from "../utils/apiUtils.js";
-import { batchInsertFacts } from "../utils/dbUtils.js";
 import fetch from "node-fetch";
+import { reportingDB } from "../../db/connection.js";
 
-// 📆 Helper: build date range
-function getDateRange(start, end) {
+/**
+ * 📆 Get Jan 1 of current year and today's date dynamically
+ */
+function getDateRange() {
+  const start = new Date(new Date().getFullYear(), 0, 1); // Jan 1 of this year
+  const end = new Date(); // today
   const dates = [];
+
   let current = new Date(start);
-  while (current <= new Date(end)) {
+  while (current <= end) {
     dates.push(current.toISOString().split("T")[0]);
     current.setDate(current.getDate() + 1);
   }
+
   return dates;
 }
 
-// 📡 API request for a single date (no filters)
-async function processMetricForDate(conn, metric, date) {
-  const params = new URLSearchParams();
-  params.append("metric", metric);
-  params.append("datefrom", date);
-  params.append("dateto", date);
-  params.append("currency", "MYR");
-  params.append("output", "total");
-
-  const url = `https://so-api.azurewebsites.net/ingress/ajax/api?${params.toString()}`;
+/**
+ * 📡 Fetch metric data for a single date (datefrom == dateto)
+ */
+async function fetchMetricForDate(metric, date) {
+  const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${metric}&datefrom=${date}&dateto=${date}&currency=MYR&output=total`;
 
   try {
     const res = await fetch(url);
@@ -43,46 +36,81 @@ async function processMetricForDate(conn, metric, date) {
     }
 
     const data = JSON.parse(text);
-
     return {
       metric_name: metric,
       metric_date: date,
       metric_value: data.total || 0,
       target_value: data.target || null,
-      currency: "MYR",
-      created_at: new Date(),
     };
   } catch (err) {
-    console.error(`❌ Failed for ${metric} on ${date}:`, err.message);
+    console.error(`❌ Failed to fetch ${metric} on ${date}:`, err.message);
     return null;
   }
 }
 
-// 🛠️ Main ETL job
+/**
+ * 🗄️ Insert a batch of rows into MySQL
+ */
+async function insertMetricsBatch(conn, rows) {
+  if (rows.length === 0) return;
+
+  const values = rows.map(r => [
+    r.metric_name,
+    r.metric_date,
+    r.metric_value,
+    r.target_value,
+    "MYR"
+  ]);
+
+  await conn.query(
+    `
+    INSERT INTO daily_metrics (
+      metric_name,
+      metric_date,
+      metric_value,
+      target_value,
+      currency
+    )
+    VALUES ?
+    ON DUPLICATE KEY UPDATE
+      metric_value = VALUES(metric_value),
+      target_value = VALUES(target_value)
+    `,
+    [values]
+  );
+}
+
+/**
+ * 🚀 Run ETL for candidatecalls metric (daily granularity)
+ */
 export async function runCandidateCallsETL() {
+  console.log("📊 Starting candidatecalls ETL job...");
   const conn = await reportingDB.getConnection();
-  console.log("📊 Running ETL for candidatecalls (no filters)...");
 
   try {
     await conn.beginTransaction();
-    const dates = getDateRange(START_DATE, END_DATE);
-    const tasks = [];
 
-    for (const date of dates) {
-      tasks.push(() => processMetricForDate(conn, "candidatecalls", date));
+    const dates = getDateRange();
+    console.log(`📆 Processing ${dates.length} days from ${dates[0]} to ${dates[dates.length - 1]}...`);
+
+    const BATCH_SIZE = 100; // API and DB-friendly chunk size
+    const allRows = [];
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
+      const row = await fetchMetricForDate("candidatecalls", date);
+      if (row) allRows.push(row);
+
+      // 🚀 Insert every BATCH_SIZE days
+      if (allRows.length >= BATCH_SIZE || i === dates.length - 1) {
+        await insertMetricsBatch(conn, allRows);
+        console.log(`✅ Inserted ${allRows.length} rows so far...`);
+        allRows.length = 0; // clear batch
+      }
     }
 
-    console.log(`📦 Total tasks prepared: ${tasks.length}`);
-
-    // 🚀 Run in parallel
-    const rows = await processInBatches(tasks, MAX_CONCURRENCY, conn);
-    console.log(`✅ Total rows fetched: ${rows.length}`);
-
-    // 🗄️ Bulk insert into DB
-    await batchInsertFacts(conn, rows, BATCH_SIZE);
-
     await conn.commit();
-    console.log("🎉 candidatecalls ETL completed successfully.");
+    console.log("🎉 ETL completed successfully!");
   } catch (err) {
     await conn.rollback();
     console.error("❌ ETL failed:", err);
