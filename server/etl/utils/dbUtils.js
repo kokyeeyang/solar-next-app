@@ -11,36 +11,32 @@ export async function batchInsertFacts(conn, rows, BATCH_SIZE) {
   }
 
   for (const chunk of chunks) {
-    // ✅ Convert objects into arrays
+    // ✅ Convert objects into arrays (only the columns we actually have!)
     const values = chunk.map(r => [
+      r.metric_name,
       r.metric_date,
-      r.metric_id || null,
-      r.region_id || null,
-      r.office_id || null,
-      r.function_id || null,
-      r.dealboard_id || null,
-      r.sector_id || null,
-      r.revenue_stream_id || null,
-      r.consultant_id || null,
       r.metric_value,
       r.target_value,
+      r.currency || "MYR",
     ]);
 
     await conn.query(
       `
-      INSERT INTO fact_daily_metrics (
-        metric_date, metric_id, region_id, office_id, function_id,
-        dealboard_id, sector_id, revenue_stream_id, consultant_id,
-        metric_value, target_value
+      INSERT INTO daily_metrics (
+        metric_name,
+        metric_date,
+        metric_value,
+        target_value,
+        currency
       )
       VALUES ?
       ON DUPLICATE KEY UPDATE
         metric_value = VALUES(metric_value),
         target_value = VALUES(target_value)
       `,
-      [values] // ✅ Pass array-of-arrays here
+      [values]
     );
   }
 
-  console.log(`✅ Inserted ${rows.length} rows into fact_daily_metrics`);
+  console.log(`✅ Inserted ${rows.length} rows into daily_metrics`);
 }
