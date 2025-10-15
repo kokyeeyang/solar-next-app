@@ -1,9 +1,37 @@
+// server/etl/dailyMetricsByRegionOffice.js
 import fetch from "node-fetch";
 import { reportingDB } from "../db/connection.js";
 
-/**
- * 🧠 Utility: Chunk an array into smaller arrays
- */
+const METRIC = "candidatecalls";
+const START_DATE = "2025-01-01";
+const END_DATE = "2025-10-14";
+
+const REGIONS = ["EMEA", "APAC", "Americas"];
+const OFFICES = ["London", "Singapore", "New York", "Kuala Lumpur"];
+const FUNCTIONS = ["Contract", "Permanent"];
+const DEALBOARDS = [
+  "Accounts Assembled (LON)",
+  "Atomic Written (LON)",
+  "Big Fees Big PVs",
+  "Billy Big Timers (GLA)",
+  "Brogram",
+  "Downstream Cowboys",
+  "Earth, Wind & Hire (LON)",
+  "Eurovision (DUS)",
+];
+
+// 🧠 Utility: generate array of all dates in a range
+function getDateRange(start, end) {
+  const dates = [];
+  let current = new Date(start);
+  while (current <= new Date(end)) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+// 🧠 Utility: chunk array into groups of size N
 function chunkArray(array, size) {
   const result = [];
   for (let i = 0; i < array.length; i += size) {
@@ -12,61 +40,94 @@ function chunkArray(array, size) {
   return result;
 }
 
-/**
- * 🛠️ Main ETL function
- * - 1️⃣ Fetch data from external API
- * - 2️⃣ Transform into DB-ready format
- * - 3️⃣ Bulk insert in chunks with progress logging
- */
-export async function runETL() {
-  console.time("⏱️ ETL duration");
+async function runETL() {
+  console.time("⏱️ ETL total duration");
+  console.log(`📊 Starting ETL for ${METRIC} from ${START_DATE} to ${END_DATE}...`);
 
-  console.log("🌐 Fetching data from API...");
-  const response = await fetch("https://your-api-endpoint.com/metrics");
-  if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+  const dates = getDateRange(START_DATE, END_DATE);
+  const rowsToInsert = [];
 
-  const rawData = await response.json();
-  console.log(`📦 Fetched ${rawData.length} rows — preparing for insert...`);
+  // ✅ 1. Fetch data from API with validation
+  for (const date of dates) {
+    for (const region of REGIONS) {
+      for (const office of OFFICES) {
+        const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}&datefrom=${date}&dateto=${date}&currency=MYR&region=${region}&office=${office}&function=${FUNCTIONS}&dealboard=${DEALBOARDS}&output=total`;
 
-  // ✅ Transform raw data into correct DB shape
-  const rows = rawData.map(item => ({
-    metric_name: item.metric_name,
-    metric_date: item.metric_date,
-    region: item.region || null,
-    office: item.office || null,
-    metric_value: item.metric_value || 0,
-    target_value: item.target_value || null,
-    currency: item.currency || "MYR",
-  }));
+        console.log(`📡 Fetching ${METRIC} for ${region} - ${office} on ${date}`);
 
+        const res = await fetch(url);
+        const text = await res.text();
+
+        if (!res.ok) {
+          console.error(`❌ API error ${res.status} for ${region}/${office} on ${date}`);
+          console.error("Response:", text.slice(0, 200));
+          continue;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error(`❌ Invalid JSON for ${region}/${office} on ${date}`);
+          console.error("Response preview:", text.slice(0, 200));
+          continue;
+        }
+
+        rowsToInsert.push({
+          metric_name: METRIC,
+          metric_date: date,
+          region,
+          office,
+          metric_value: data.total || 0,
+          target_value: data.target || null,
+          currency: "MYR",
+          function: "",
+          consultant: "",
+          dealboard: "",
+          revenue_stream: "",
+          sector: "",
+          team: "",
+        });
+      }
+    }
+  }
+
+  console.log(`📦 Total rows prepared for insert: ${rowsToInsert.length}`);
+
+  // ✅ 2. Bulk insert into DB in chunks with transaction & progress tracking
   const connection = await reportingDB.getConnection();
   const chunkSize = 500;
-  const chunks = chunkArray(rows, chunkSize);
-  const total = rows.length;
+  const chunks = chunkArray(rowsToInsert, chunkSize);
+  const total = rowsToInsert.length;
 
   try {
     await connection.beginTransaction();
+    console.log("🗄️ Inserting data into MySQL...");
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-
-      // Prepare bulk VALUES for the insert
-      const values = chunk.map(row => [
-        row.metric_name,
-        row.metric_date,
-        row.region,
-        row.office,
-        row.metric_value,
-        row.target_value,
-        row.currency,
+      const values = chunk.map((r) => [
+        r.metric_name,
+        r.metric_date,
+        r.region,
+        r.office,
+        r.metric_value,
+        r.target_value,
+        r.currency,
+        r.function,
+        r.consultant,
+        r.dealboard,
+        r.revenue_stream,
+        r.sector,
+        r.team,
       ]);
 
       await connection.query(
         `
         INSERT INTO daily_metrics 
-          (metric_name, metric_date, region, office, metric_value, target_value, currency)
+          (metric_name, metric_date, region, office, metric_value, target_value, currency, function, consultant, dealboard, revenue_stream, sector, team)
         VALUES ?
-        ON DUPLICATE KEY UPDATE
+        ON DUPLICATE KEY UPDATE 
           metric_value = VALUES(metric_value),
           target_value = VALUES(target_value)
         `,
@@ -83,17 +144,17 @@ export async function runETL() {
     console.log("🎉 ETL completed successfully!");
   } catch (err) {
     await connection.rollback();
-    console.error("❌ ETL failed:", err);
+    console.error("❌ ETL insert failed:", err);
+    process.exit(1);
   } finally {
     connection.release();
-    console.timeEnd("⏱️ ETL duration");
+    console.timeEnd("⏱️ ETL total duration");
   }
+
+  process.exit(0);
 }
 
-// Allow standalone execution: `node server/etl/dailyMetricsETL.js`
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runETL().catch(err => {
-    console.error("❌ ETL failed:", err);
-    process.exit(1);
-  });
-}
+runETL().catch((err) => {
+  console.error("❌ ETL failed:", err);
+  process.exit(1);
+});
