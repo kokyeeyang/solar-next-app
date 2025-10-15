@@ -1,6 +1,10 @@
 // server/etl/etlConfig.js
-export const START_DATE = "2025-01-01";
-export const END_DATE = "2025-10-14";
+const now = new Date();
+// 🗓️ Start of the current year (e.g. 2025-01-01)
+export const START_DATE = `${now.getFullYear()}-01-01`;
+
+// 📅 Today's date in YYYY-MM-DD
+export const END_DATE = now.toISOString().split("T")[0];
 
 export const REGIONS = ["EMEA", "APAC", "Americas"];
 export const OFFICES = ["London", "Singapore", "New York", "Kuala Lumpur"];
