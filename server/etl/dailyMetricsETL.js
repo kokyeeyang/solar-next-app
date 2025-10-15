@@ -4,11 +4,11 @@ import { reportingDB } from "../db/connection.js";
 
 const METRIC = "candidatecalls";
 const START_DATE = "2025-01-01";
-const END_DATE = "2025-10-14";
+const END_DATE   = "2025-10-14";
 
-const REGIONS = ["EMEA", "APAC", "Americas"];
-const OFFICES = ["London", "Singapore", "New York", "Kuala Lumpur"];
-const FUNCTIONS = ["Contract", "Permanent"];
+const REGIONS    = ["EMEA", "APAC", "Americas"];
+const OFFICES    = ["London", "Singapore", "New York", "Kuala Lumpur"];
+const FUNCTIONS  = ["Contract", "Permanent"];
 const DEALBOARDS = [
   "Accounts Assembled (LON)",
   "Atomic Written (LON)",
@@ -20,82 +20,121 @@ const DEALBOARDS = [
   "Eurovision (DUS)",
 ];
 
-// 🧠 Utility: chunk array into groups of size N
-function chunkArray(array, size) {
-  const result = [];
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
+/* ───────── helpers ───────── */
+function getDateRange(start, end) {
+  const dates = [];
+  let cur = new Date(start);
+  const endDate = new Date(end);
+  while (cur <= endDate) {
+    dates.push(cur.toISOString().split("T")[0]);
+    cur.setDate(cur.getDate() + 1);
   }
+  return dates;
+}
+
+function chunkArray(arr, size) {
+  const result = [];
+  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
   return result;
 }
 
-async function runETL() {
-  console.time("⏱️ ETL total duration");
-  console.log(`📊 Starting ETL for ${METRIC} from ${START_DATE} to ${END_DATE}...`);
+/* ───────── API fetch helper ───────── */
+async function fetchMetricForCombo(date, region, office) {
+  const url =
+    `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}` +
+    `&datefrom=${date}` +
+    `&dateto=${date}` +
+    `&currency=MYR` +
+    `&region=${encodeURIComponent(region)}` +
+    `&office=${encodeURIComponent(office)}` +
+    `&function=${encodeURIComponent(FUNCTIONS.join(","))}` +
+    `&dealboard=${encodeURIComponent(DEALBOARDS.join(","))}` +
+    `&output=total`;
 
-  // ✅ 1. Build one API call with all regions, offices, and full date range
-  const regionParam = REGIONS.join(",");
-  const officeParam = OFFICES.join(",");
-  const functionParam = FUNCTIONS.join(",");
-  const dealboardParam = DEALBOARDS.join(",");
-
-  const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}&datefrom=${START_DATE}&dateto=${END_DATE}&currency=MYR&region=${regionParam}&office=${officeParam}&function=${functionParam}&dealboard=${dealboardParam}&output=total`;
-
-  console.log(`📡 Fetching all ${METRIC} data from API in one go...`);
-  const res = await fetch(url);
-  const text = await res.text();
-
-  if (!res.ok) {
-    console.error(`❌ API request failed with ${res.status}`);
-    console.error("Response:", text.slice(0, 500));
-    process.exit(1);
-  }
-
-  let data;
   try {
-    data = JSON.parse(text);
+    const res = await fetch(url);
+    const text = await res.text();
+
+    if (!res.ok) {
+      console.error(`❌ API error ${res.status} for ${region}/${office} on ${date}`);
+      console.error("Response:", text.slice(0, 200));
+      return null;
+    }
+
+    const data = JSON.parse(text);
+
+    return {
+      metric_name: METRIC,
+      metric_date: date,
+      region,
+      office,
+      metric_value: data.total || 0,
+      target_value: data.target || null,
+      currency: "MYR",
+      function: FUNCTIONS.join(","),
+      consultant: "",
+      dealboard: DEALBOARDS.join(","),
+      revenue_stream: "",
+      sector: "",
+      team: "",
+    };
   } catch (err) {
-    console.error("❌ Invalid JSON from API");
-    console.error("Response preview:", text.slice(0, 500));
-    process.exit(1);
+    console.error(`❌ Failed for ${region}/${office} on ${date}:`, err.message);
+    return null;
+  }
+}
+
+/* ───────── main ───────── */
+async function runETL() {
+  console.time("⏱️ ETL total");
+  console.log(`📊 Parallel ETL for ${METRIC} from ${START_DATE} to ${END_DATE}...`);
+
+  const dates = getDateRange(START_DATE, END_DATE);
+  const allTasks = [];
+
+  // ✅ Build all fetch tasks first
+  for (const date of dates) {
+    for (const region of REGIONS) {
+      for (const office of OFFICES) {
+        allTasks.push({ date, region, office });
+      }
+    }
   }
 
-  // ✅ 2. Transform API response into rows for DB
-  if (!Array.isArray(data)) {
-    console.error("❌ Unexpected API response format. Expected an array.");
-    process.exit(1);
+  console.log(`📡 Total API calls to make: ${allTasks.length}`);
+
+  const BATCH_SIZE = 20; // safe concurrency level (adjust if API allows more)
+  const rowsToInsert = [];
+
+  // ✅ Process in parallel batches
+  const taskChunks = chunkArray(allTasks, BATCH_SIZE);
+  let processed = 0;
+
+  for (const chunk of taskChunks) {
+    const results = await Promise.all(
+      chunk.map(({ date, region, office }) => fetchMetricForCombo(date, region, office))
+    );
+
+    // Filter successful results
+    rowsToInsert.push(...results.filter(Boolean));
+    processed += chunk.length;
+    console.log(`✅ Processed ${processed}/${allTasks.length} API calls`);
   }
 
-  const rowsToInsert = data.map((item) => ({
-    metric_name: METRIC,
-    metric_date: item.metric_date || item.Date || START_DATE,
-    region: item.region || item.Region || "",
-    office: item.office || item.Office || "",
-    metric_value: item.total || 0,
-    target_value: item.target || null,
-    currency: "MYR",
-    function: item.function || "",
-    consultant: item.consultant || "",
-    dealboard: item.dealboard || "",
-    revenue_stream: item.revenue_stream || "",
-    sector: item.sector || "",
-    team: item.team || "",
-  }));
+  console.log(`📦 Prepared ${rowsToInsert.length} rows for insert.`);
 
-  console.log(`📦 Total rows prepared for insert: ${rowsToInsert.length}`);
-
-  // ✅ 3. Bulk insert into DB in chunks with transaction & progress tracking
+  // ✅ 2. Bulk insert into MySQL (transaction + chunks)
   const connection = await reportingDB.getConnection();
-  const chunkSize = 1000; // Adjust based on expected volume
-  const chunks = chunkArray(rowsToInsert, chunkSize);
+  const INSERT_CHUNK_SIZE = 1000;
+  const insertChunks = chunkArray(rowsToInsert, INSERT_CHUNK_SIZE);
   const total = rowsToInsert.length;
 
   try {
     await connection.beginTransaction();
-    console.log("🗄️ Inserting data into MySQL...");
+    console.log("🗄️ Inserting into MySQL...");
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    for (let i = 0; i < insertChunks.length; i++) {
+      const chunk = insertChunks[i];
       const values = chunk.map((r) => [
         r.metric_name,
         r.metric_date,
@@ -124,10 +163,8 @@ async function runETL() {
         [values]
       );
 
-      // 📊 Progress log
-      const inserted = Math.min((i + 1) * chunkSize, total);
-      const percent = ((inserted / total) * 100).toFixed(2);
-      console.log(`✅ Inserted ${inserted}/${total} rows (${percent}%)`);
+      const inserted = Math.min((i + 1) * INSERT_CHUNK_SIZE, total);
+      console.log(`✅ Inserted ${inserted}/${total} rows (${((inserted / total) * 100).toFixed(2)}%)`);
     }
 
     await connection.commit();
@@ -138,7 +175,7 @@ async function runETL() {
     process.exit(1);
   } finally {
     connection.release();
-    console.timeEnd("⏱️ ETL total duration");
+    console.timeEnd("⏱️ ETL total");
   }
 
   process.exit(0);
