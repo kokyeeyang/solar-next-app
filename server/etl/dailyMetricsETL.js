@@ -20,17 +20,6 @@ const DEALBOARDS = [
   "Eurovision (DUS)",
 ];
 
-// 🧠 Utility: generate array of all dates in a range
-function getDateRange(start, end) {
-  const dates = [];
-  let current = new Date(start);
-  while (current <= new Date(end)) {
-    dates.push(current.toISOString().split("T")[0]);
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
-}
-
 // 🧠 Utility: chunk array into groups of size N
 function chunkArray(array, size) {
   const result = [];
@@ -44,59 +33,60 @@ async function runETL() {
   console.time("⏱️ ETL total duration");
   console.log(`📊 Starting ETL for ${METRIC} from ${START_DATE} to ${END_DATE}...`);
 
-  const dates = getDateRange(START_DATE, END_DATE);
-  const rowsToInsert = [];
+  // ✅ 1. Build one API call with all regions, offices, and full date range
+  const regionParam = REGIONS.join(",");
+  const officeParam = OFFICES.join(",");
+  const functionParam = FUNCTIONS.join(",");
+  const dealboardParam = DEALBOARDS.join(",");
 
-  // ✅ 1. Fetch data from API with validation
-  for (const date of dates) {
-    for (const region of REGIONS) {
-      for (const office of OFFICES) {
-        const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}&datefrom=${date}&dateto=${date}&currency=MYR&region=${region}&office=${office}&function=${FUNCTIONS}&dealboard=${DEALBOARDS}&output=total`;
+  const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}&datefrom=${START_DATE}&dateto=${END_DATE}&currency=MYR&region=${regionParam}&office=${officeParam}&function=${functionParam}&dealboard=${dealboardParam}&output=total`;
 
-        console.log(`📡 Fetching ${METRIC} for ${region} - ${office} on ${date}`);
+  console.log(`📡 Fetching all ${METRIC} data from API in one go...`);
+  const res = await fetch(url);
+  const text = await res.text();
 
-        const res = await fetch(url);
-        const text = await res.text();
-
-        if (!res.ok) {
-          console.error(`❌ API error ${res.status} for ${region}/${office} on ${date}`);
-          console.error("Response:", text.slice(0, 200));
-          continue;
-        }
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          console.error(`❌ Invalid JSON for ${region}/${office} on ${date}`);
-          console.error("Response preview:", text.slice(0, 200));
-          continue;
-        }
-
-        rowsToInsert.push({
-          metric_name: METRIC,
-          metric_date: date,
-          region,
-          office,
-          metric_value: data.total || 0,
-          target_value: data.target || null,
-          currency: "MYR",
-          function: "",
-          consultant: "",
-          dealboard: "",
-          revenue_stream: "",
-          sector: "",
-          team: "",
-        });
-      }
-    }
+  if (!res.ok) {
+    console.error(`❌ API request failed with ${res.status}`);
+    console.error("Response:", text.slice(0, 500));
+    process.exit(1);
   }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    console.error("❌ Invalid JSON from API");
+    console.error("Response preview:", text.slice(0, 500));
+    process.exit(1);
+  }
+
+  // ✅ 2. Transform API response into rows for DB
+  if (!Array.isArray(data)) {
+    console.error("❌ Unexpected API response format. Expected an array.");
+    process.exit(1);
+  }
+
+  const rowsToInsert = data.map((item) => ({
+    metric_name: METRIC,
+    metric_date: item.metric_date || item.Date || START_DATE,
+    region: item.region || item.Region || "",
+    office: item.office || item.Office || "",
+    metric_value: item.total || 0,
+    target_value: item.target || null,
+    currency: "MYR",
+    function: item.function || "",
+    consultant: item.consultant || "",
+    dealboard: item.dealboard || "",
+    revenue_stream: item.revenue_stream || "",
+    sector: item.sector || "",
+    team: item.team || "",
+  }));
 
   console.log(`📦 Total rows prepared for insert: ${rowsToInsert.length}`);
 
-  // ✅ 2. Bulk insert into DB in chunks with transaction & progress tracking
+  // ✅ 3. Bulk insert into DB in chunks with transaction & progress tracking
   const connection = await reportingDB.getConnection();
-  const chunkSize = 500;
+  const chunkSize = 1000; // Adjust based on expected volume
   const chunks = chunkArray(rowsToInsert, chunkSize);
   const total = rowsToInsert.length;
 
