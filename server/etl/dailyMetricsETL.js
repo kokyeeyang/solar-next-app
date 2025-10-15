@@ -154,7 +154,7 @@ async function runETL() {
       await connection.query(
         `
         INSERT INTO daily_metrics 
-          (metric_name, metric_date, region, office, metric_value, target_value, currency, function, consultant, dealboard, revenue_stream, sector, team)
+          (metric_name, metric_date, region, office, metric_value, target_value, currency, \`function\`, consultant, dealboard, revenue_stream, sector, team)
         VALUES ?
         ON DUPLICATE KEY UPDATE 
           metric_value = VALUES(metric_value),
