@@ -1,14 +1,14 @@
-// server/etl/dailyMetricsByRegionOffice.js
+// server/etl/dailyMetricsETL.js
 import fetch from "node-fetch";
 import { reportingDB } from "../db/connection.js";
 
 const METRIC = "candidatecalls";
 const START_DATE = "2025-01-01";
-const END_DATE   = "2025-10-14";
+const END_DATE = "2025-10-14";
 
-const REGIONS    = ["EMEA", "APAC", "Americas"];
-const OFFICES    = ["London", "Singapore", "New York", "Kuala Lumpur"];
-const FUNCTIONS  = ["Contract", "Permanent"];
+const REGIONS = ["EMEA", "APAC", "Americas"];
+const OFFICES = ["London", "Singapore", "New York", "Kuala Lumpur"];
+const FUNCTIONS = ["Contract", "Permanent"];
 const DEALBOARDS = [
   "Accounts Assembled (LON)",
   "Atomic Written (LON)",
@@ -39,7 +39,7 @@ function chunkArray(arr, size) {
 }
 
 /* ───────── API fetch helper ───────── */
-async function fetchMetricForCombo(date, region, office) {
+async function fetchMetricForCombo(date, region, office, dealboard) {
   const url =
     `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${METRIC}` +
     `&datefrom=${date}` +
@@ -48,7 +48,7 @@ async function fetchMetricForCombo(date, region, office) {
     `&region=${encodeURIComponent(region)}` +
     `&office=${encodeURIComponent(office)}` +
     `&function=${encodeURIComponent(FUNCTIONS.join(","))}` +
-    `&dealboard=${encodeURIComponent(DEALBOARDS.join(","))}` +
+    `&dealboard=${encodeURIComponent(dealboard)}` +
     `&output=total`;
 
   try {
@@ -56,7 +56,7 @@ async function fetchMetricForCombo(date, region, office) {
     const text = await res.text();
 
     if (!res.ok) {
-      console.error(`❌ API error ${res.status} for ${region}/${office} on ${date}`);
+      console.error(`❌ API error ${res.status} for ${region}/${office}/${dealboard} on ${date}`);
       console.error("Response:", text.slice(0, 200));
       return null;
     }
@@ -73,13 +73,13 @@ async function fetchMetricForCombo(date, region, office) {
       currency: "MYR",
       function: FUNCTIONS.join(","),
       consultant: "",
-      dealboard: DEALBOARDS.join(","),
+      dealboard, // ✅ single dealboard now
       revenue_stream: "",
       sector: "",
       team: "",
     };
   } catch (err) {
-    console.error(`❌ Failed for ${region}/${office} on ${date}:`, err.message);
+    console.error(`❌ Failed for ${region}/${office}/${dealboard} on ${date}:`, err.message);
     return null;
   }
 }
@@ -92,30 +92,33 @@ async function runETL() {
   const dates = getDateRange(START_DATE, END_DATE);
   const allTasks = [];
 
-  // ✅ Build all fetch tasks first
+  // ✅ Build all API tasks: date × region × office × dealboard
   for (const date of dates) {
     for (const region of REGIONS) {
       for (const office of OFFICES) {
-        allTasks.push({ date, region, office });
+        for (const dealboard of DEALBOARDS) {
+          allTasks.push({ date, region, office, dealboard });
+        }
       }
     }
   }
 
   console.log(`📡 Total API calls to make: ${allTasks.length}`);
 
-  const BATCH_SIZE = 20; // safe concurrency level (adjust if API allows more)
+  const BATCH_SIZE = 20; // adjust depending on API limits
   const rowsToInsert = [];
 
-  // ✅ Process in parallel batches
+  // ✅ Process API calls in parallel batches
   const taskChunks = chunkArray(allTasks, BATCH_SIZE);
   let processed = 0;
 
   for (const chunk of taskChunks) {
     const results = await Promise.all(
-      chunk.map(({ date, region, office }) => fetchMetricForCombo(date, region, office))
+      chunk.map(({ date, region, office, dealboard }) =>
+        fetchMetricForCombo(date, region, office, dealboard)
+      )
     );
 
-    // Filter successful results
     rowsToInsert.push(...results.filter(Boolean));
     processed += chunk.length;
     console.log(`✅ Processed ${processed}/${allTasks.length} API calls`);
