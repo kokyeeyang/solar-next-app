@@ -2,15 +2,16 @@ name: Daily ETL Job
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # every day at 2am UTC
+    - cron: "0 2 * * *"   # 🕑 Every day at 2 AM UTC (10 AM MYT)
   workflow_dispatch:
 
 jobs:
   run-etl:
     runs-on: ubuntu-latest
+    timeout-minutes: 60  # ⏱️ Prevent runaway jobs
 
     steps:
-      - name: 📥 Checkout repo
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
       - name: 🟢 Setup Node.js
@@ -30,4 +31,5 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_PORT: ${{ secrets.DB_PORT }}
-        run: node etl/dailyMetricsETL.js
+          NODE_ENV: production
+        run: node etl/runAllETL.js
