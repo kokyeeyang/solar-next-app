@@ -2,12 +2,14 @@
 // import { runCandidateCallsETL } from "./jobs/candidateCallsEtl.js";
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
+import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContactedRowsETL.js";
 // import { runCvsSentETL } from "./jobs/cvssentETL.js";
 // import { runInterviewsETL } from "./jobs/interviewsETL.js";
 (async () => {
   console.log("🚀 Starting all ETL jobs...");
   await runCandidateCallsETL();
   await runCandidatesNotContacted30DaysETL();
+  await runCandidatesNotContactedRowsETL();
   // await runCvsSentETL();
   // await runInterviewsETL();
   console.log("✅ All ETL jobs finished!");
