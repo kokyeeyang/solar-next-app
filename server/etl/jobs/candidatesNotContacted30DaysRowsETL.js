@@ -3,43 +3,50 @@ import fetch from "node-fetch";
 import { reportingDB } from "../../db/connection.js";
 
 /**
- * 📡 Fetch all "candidatesNotContacted30Days" rows from API
+ * 📡 Fetch all rows for candidatesNotContacted30Days
  */
-async function fetchCandidateRows() {
+async function fetchCandidatesNotContactedRows() {
   const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=candidatesNotContacted30Days&currency=MYR&output=rows`;
-
-  console.log("📡 Fetching candidatesNotContacted30Days rows...");
-
-  const res = await fetch(url);
-  const text = await res.text();
-
-  if (!res.ok) {
-    throw new Error(`API error ${res.status}: ${text.slice(0, 200)}`);
-  }
+  console.log("📡 Fetching rows from:", url);
 
   try {
-    return JSON.parse(text);
+    const res = await fetch(url);
+    const text = await res.text();
+
+    if (!res.ok) {
+      console.error(`❌ API error ${res.status}`);
+      console.error("Response:", text.slice(0, 300));
+      return [];
+    }
+
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) {
+      console.error("❌ Unexpected API response format:", data);
+      return [];
+    }
+
+    console.log(`✅ Retrieved ${data.length} rows from API.`);
+    return data;
   } catch (err) {
-    throw new Error("Failed to parse JSON response: " + err.message);
+    console.error("❌ Failed to fetch data:", err.message);
+    return [];
   }
 }
 
 /**
- * 🗄️ Insert rows into MySQL
+ * 🗄️ Insert rows into MySQL (batch insert with upsert)
  */
-async function insertCandidateRows(conn, rows) {
-  if (!rows || rows.length === 0) {
-    console.log("⚠️ No rows returned from API.");
+async function insertRowsIntoDB(conn, rows) {
+  if (rows.length === 0) {
+    console.log("⚠️ No rows to insert.");
     return;
   }
 
-  const snapshotDate = new Date().toISOString().split("T")[0];
-
   const values = rows.map(r => [
     r.PlacementID || null,
-    r.lastCalled || null,
-    r.StartDate || null,
-    r.EndDate || null,
+    r.lastCalled ? new Date(r.lastCalled) : null,
+    r.StartDate ? new Date(r.StartDate) : null,
+    r.EndDate ? new Date(r.EndDate) : null,
     r.OwnerName || null,
     r.CandidateID || null,
     r.Candidate || null,
@@ -50,7 +57,6 @@ async function insertCandidateRows(conn, rows) {
     r.SOSector || null,
     r.JobID || null,
     r.JobTitle || null,
-    snapshotDate
   ]);
 
   await conn.query(
@@ -58,42 +64,54 @@ async function insertCandidateRows(conn, rows) {
     INSERT INTO candidates_not_contacted_rows (
       placement_id, last_called, start_date, end_date, owner_name,
       candidate_id, candidate_name, region, office, team,
-      dealboard, so_sector, job_id, job_title, snapshot_date
-    ) VALUES ?
+      dealboard, so_sector, job_id, job_title
+    )
+    VALUES ?
     ON DUPLICATE KEY UPDATE
       last_called = VALUES(last_called),
+      start_date = VALUES(start_date),
       end_date = VALUES(end_date),
       owner_name = VALUES(owner_name),
+      candidate_id = VALUES(candidate_id),
+      candidate_name = VALUES(candidate_name),
+      region = VALUES(region),
+      office = VALUES(office),
       team = VALUES(team),
       dealboard = VALUES(dealboard),
       so_sector = VALUES(so_sector),
+      job_id = VALUES(job_id),
       job_title = VALUES(job_title)
     `,
     [values]
   );
 
-  console.log(`✅ Inserted or updated ${values.length} rows into candidates_not_contacted_rows.`);
+  console.log(`✅ Inserted or updated ${rows.length} rows into candidates_not_contacted_rows`);
 }
 
 /**
- * 🚀 Run ETL job
+ * 🚀 Main ETL job
  */
 export async function runCandidatesNotContactedRowsETL() {
-  console.log("📊 Starting ETL for candidatesNotContacted30Days rows...");
-  const conn = await reportingDB.getConnection();
+  console.log("📊 Starting ETL for candidatesNotContacted30Days (rows)...");
 
+  const conn = await reportingDB.getConnection();
   try {
     await conn.beginTransaction();
 
-    const rows = await fetchCandidateRows();
-    await insertCandidateRows(conn, rows);
+    const rows = await fetchCandidatesNotContactedRows();
+    await insertRowsIntoDB(conn, rows);
 
     await conn.commit();
-    console.log("🎉 candidatesNotContacted30Days rows ETL completed successfully!");
+    console.log("🎉 ETL completed successfully!");
   } catch (err) {
     await conn.rollback();
     console.error("❌ ETL failed:", err);
   } finally {
     conn.release();
   }
+}
+
+// Allow running standalone (for manual runs)
+if (process.argv[1] === new URL(import.meta.url).pathname) {
+  runCandidatesNotContactedRowsETL().then(() => process.exit(0));
 }
