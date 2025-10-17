@@ -1,6 +1,7 @@
 // server/etl/runAllHistoricalETL.js
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
+import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContactedRowsETL.js";
 
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC off-by-one) */
 function toLocalISODate(d) {
@@ -63,6 +64,7 @@ async function runBackfillETL() {
 
   // 🗄️ Insert the one-row metric for candidatesNotContacted30Days
   await runCandidatesNotContacted30DaysETL();
+  await runCandidatesNotContactedRowsETL();
 
   // ✅ Gracefully close DB connection pool if possible
   if (reportingDB && typeof reportingDB.end === "function") {
