@@ -1,4 +1,3 @@
-// server/etl/jobs/candidateCallsETL.js
 import fetch from "node-fetch";
 import { reportingDB } from "../../db/connection.js";
 
@@ -80,11 +79,8 @@ async function insertMetricsBatch(conn, rows) {
   );
 }
 
-/**
- * 🚀 Run ETL for candidatecalls metric (daily granularity)
- */
-export async function runCandidateCallsETL() {
-  console.log("📊 Starting candidatecalls ETL job...");
+export async function runCandidatesNotContacted30DaysETL() {
+  console.log("📊 Starting candidates not contacted in 30 days ETL job...");
   const conn = await reportingDB.getConnection();
 
   try {
@@ -98,7 +94,7 @@ export async function runCandidateCallsETL() {
 
     for (let i = 0; i < dates.length; i++) {
       const date = dates[i];
-      const row = await fetchMetricForDate("candidatecalls", date);
+      const row = await fetchMetricForDate("candidatesNotContacted30Days", date);
       if (row) allRows.push(row);
 
       // 🚀 Insert every BATCH_SIZE days
