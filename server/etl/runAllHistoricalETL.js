@@ -58,10 +58,20 @@ async function runBackfillETL() {
 
   for (const { start, end } of ranges) {
     console.log(`🚀 Running candidatecalls ETL for ${start} → ${end}`);
-    await runCandidateCallsETL(start, end); // <-- ensure your ETL supports (start, end)
+    await runCandidateCallsETL(start, end); // ✅ supports range now
   }
 
-  await runCandidatesNotContacted30DaysETL()
+  // 🗄️ Insert the one-row metric for candidatesNotContacted30Days
+  await runCandidatesNotContacted30DaysETL();
+
+  // ✅ Gracefully close DB connection pool if possible
+  if (reportingDB && typeof reportingDB.end === "function") {
+    await reportingDB.end();
+    console.log("🔌 MySQL pool closed.");
+  }
+
+  console.log("🎉 All historical ETL jobs completed successfully.");
+  process.exit(0); // ✅ Exit cleanly to avoid hanging in GitHub Actions
 }
 
 runBackfillETL().catch((err) => {
