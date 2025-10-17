@@ -1,4 +1,5 @@
-import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
+// server/etl/runAllHistoricalETL.js
+import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC off-by-one) */
 function toLocalISODate(d) {
@@ -9,13 +10,13 @@ function toLocalISODate(d) {
 }
 
 /**
- * 📆 Split Jan 1 → today into monthly or quarterly ranges (inclusive)
+ * Split Jan 1 → today into monthly or quarterly ranges (inclusive)
  * @param {"monthly"|"quarterly"} interval
  */
 function getDynamicDateRanges(interval = "quarterly") {
   const ranges = [];
-  const startOfYear = new Date(new Date().getFullYear(), 0, 1); // Jan 1 (local)
-  const today = new Date(); // now (local)
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+  const today = new Date();
 
   let currentStart = new Date(startOfYear);
 
@@ -23,25 +24,23 @@ function getDynamicDateRanges(interval = "quarterly") {
     let currentEnd = new Date(currentStart);
 
     if (interval === "monthly") {
-      // Move to first day of next month, then setDate(0) = last day of this month
       currentEnd.setMonth(currentEnd.getMonth() + 1);
-      currentEnd.setDate(0);
+      currentEnd.setDate(0);                 // last day of that month
     } else if (interval === "quarterly") {
-      // Move to first day 3 months ahead, then setDate(0) = last day of this quarter
       currentEnd.setMonth(currentEnd.getMonth() + 3);
-      currentEnd.setDate(0);
+      currentEnd.setDate(0);                 // last day of that quarter
     } else {
       throw new Error(`Unknown interval: ${interval}`);
     }
 
-    // Clamp to today if we overshoot
-    if (currentEnd > today) currentEnd = today;
+    if (currentEnd > today) currentEnd = today; // clamp
 
-    const startStr = toLocalISODate(currentStart);
-    const endStr = toLocalISODate(currentEnd);
-    ranges.push({ start: startStr, end: endStr });
+    ranges.push({
+      start: toLocalISODate(currentStart),
+      end: toLocalISODate(currentEnd),
+    });
 
-    // Advance to the next day after currentEnd
+    // move to next day after currentEnd
     currentStart = new Date(currentEnd);
     currentStart.setDate(currentStart.getDate() + 1);
   }
@@ -51,17 +50,17 @@ function getDynamicDateRanges(interval = "quarterly") {
 
 async function runBackfillETL() {
   const INTERVAL = process.env.ETL_INTERVAL || "monthly"; // "monthly" or "quarterly"
-  console.log(`📊 Starting backfill ETL for candidatesNotContacted30Days… (${INTERVAL})`);
+  console.log(`📜 Historical backfill for candidatecalls (${INTERVAL})`);
 
   const ranges = getDynamicDateRanges(INTERVAL);
-  console.log("📆 Generated dynamic ranges:", ranges);
+  console.log("📆 Ranges:", ranges);
 
   for (const { start, end } of ranges) {
-    console.log(`🚀 Running ETL for ${start} → ${end}`);
-    await runCandidatesNotContacted30DaysETL(start, end);
+    console.log(`🚀 Running candidatecalls ETL for ${start} → ${end}`);
+    await runCandidateCallsETL(start, end); // <-- ensure your ETL supports (start, end)
   }
 
-  console.log("🎉 All backfill ETL ranges completed successfully.");
+  console.log("✅ Historical backfill complete.");
 }
 
 runBackfillETL().catch((err) => {
