@@ -1,4 +1,5 @@
 // server/etl/runAllHistoricalETL.js
+import { reportingDB } from "../db/connection.js"; // ✅ <-- Add this import
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
 import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
