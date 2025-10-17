@@ -3,11 +3,13 @@ import fetch from "node-fetch";
 import { reportingDB } from "../../db/connection.js";
 
 /**
- * 📆 Get Jan 1 of current year and today's date dynamically
+ * 📆 Generate a date range array (inclusive)
+ * - If startDate and endDate are provided, use them.
+ * - Otherwise defaults to Jan 1 of current year → today.
  */
-function getDateRange() {
-  const start = new Date(new Date().getFullYear(), 0, 1); // Jan 1 of this year
-  const end = new Date(); // today
+function getDateRange(startDate, endDate) {
+  const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1);
+  const end = endDate ? new Date(endDate) : new Date();
   const dates = [];
 
   let current = new Date(start);
@@ -15,7 +17,6 @@ function getDateRange() {
     dates.push(current.toISOString().split("T")[0]);
     current.setDate(current.getDate() + 1);
   }
-
   return dates;
 }
 
@@ -59,7 +60,7 @@ async function insertMetricsBatch(conn, rows) {
     r.metric_date,
     r.metric_value,
     r.target_value,
-    "MYR"
+    "MYR",
   ]);
 
   await conn.query(
@@ -82,18 +83,20 @@ async function insertMetricsBatch(conn, rows) {
 
 /**
  * 🚀 Run ETL for candidatecalls metric (daily granularity)
+ * @param {string} [startDate] - optional YYYY-MM-DD start date
+ * @param {string} [endDate] - optional YYYY-MM-DD end date
  */
-export async function runCandidateCallsETL() {
-  console.log("📊 Starting candidatecalls ETL job...");
+export async function runCandidateCallsETL(startDate, endDate) {
+  console.log(`📊 Starting candidatecalls ETL job${startDate && endDate ? ` for ${startDate} → ${endDate}` : ""}...`);
   const conn = await reportingDB.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    const dates = getDateRange();
+    const dates = getDateRange(startDate, endDate);
     console.log(`📆 Processing ${dates.length} days from ${dates[0]} to ${dates[dates.length - 1]}...`);
 
-    const BATCH_SIZE = 100; // API and DB-friendly chunk size
+    const BATCH_SIZE = 100; // API + DB-friendly chunk size
     const allRows = [];
 
     for (let i = 0; i < dates.length; i++) {
@@ -105,12 +108,12 @@ export async function runCandidateCallsETL() {
       if (allRows.length >= BATCH_SIZE || i === dates.length - 1) {
         await insertMetricsBatch(conn, allRows);
         console.log(`✅ Inserted ${allRows.length} rows so far...`);
-        allRows.length = 0; // clear batch
+        allRows.length = 0;
       }
     }
 
     await conn.commit();
-    console.log("🎉 ETL completed successfully!");
+    console.log("🎉 candidatecalls ETL completed successfully!");
   } catch (err) {
     await conn.rollback();
     console.error("❌ ETL failed:", err);
