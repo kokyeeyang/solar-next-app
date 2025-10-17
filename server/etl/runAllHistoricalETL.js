@@ -1,5 +1,6 @@
 // server/etl/runAllHistoricalETL.js
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
+import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
 
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC off-by-one) */
 function toLocalISODate(d) {
@@ -60,7 +61,7 @@ async function runBackfillETL() {
     await runCandidateCallsETL(start, end); // <-- ensure your ETL supports (start, end)
   }
 
-  console.log("✅ Historical backfill complete.");
+  await runCandidatesNotContacted30DaysETL()
 }
 
 runBackfillETL().catch((err) => {
