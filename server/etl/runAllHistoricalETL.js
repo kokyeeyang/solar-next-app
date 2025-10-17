@@ -1,7 +1,7 @@
 // server/etl/runAllHistoricalETL.js
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
-import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContactedRowsETL.js";
+import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
 
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC off-by-one) */
 function toLocalISODate(d) {
