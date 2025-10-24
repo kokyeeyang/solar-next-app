@@ -2,6 +2,7 @@
 import { reportingDB } from "../db/connection.js"; // ✅ <-- Add this import
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesAddedETL } from "./jobs/candidatesAddedETL.js";
+import { runJobsAddedETL } from "./jobs/jobsAddedETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
 import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
 
@@ -62,12 +63,13 @@ async function runBackfillETL() {
   for (const { start, end } of ranges) {
     console.log(`🚀 Running candidatecalls ETL for ${start} → ${end}`);
     await runCandidateCallsETL(start, end); // ✅ supports range now
+    await runCandidatesAddedETL(start, end);
+    await runJobsAddedETL(start, end);
   }
 
   // 🗄️ Insert the one-row metric for candidatesNotContacted30Days
   await runCandidatesNotContacted30DaysETL();
   await runCandidatesNotContactedRowsETL();
-  await runCandidatesAddedETL();
 
   // ✅ Gracefully close DB connection pool if possible
   if (reportingDB && typeof reportingDB.end === "function") {

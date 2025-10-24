@@ -257,10 +257,10 @@ export default function DashboardPage(): React.ReactElement {
           (arr) => Array.isArray(arr) && arr.length > 0
         );
 
-        if (!hasFilters && token === "candidatecalls") {
+        if (!hasFilters && (token === "candidatecalls" || token === "candidatesadded" || token === "jobsadded")) {
           try {
             const localRes = await fetch(
-              `${NEXT_PUBLIC_API_BASE}/api/candidatecalls?datefrom=${start}&dateto=${end}`
+              `${NEXT_PUBLIC_API_BASE}/api/${token}?datefrom=${start}&dateto=${end}`
             );
             if (localRes.ok) {
               const localData = await localRes.json();
