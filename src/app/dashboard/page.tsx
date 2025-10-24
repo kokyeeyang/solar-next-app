@@ -606,6 +606,7 @@ export default function DashboardPage(): React.ReactElement {
 
   /* ───────────────────── Load filter options + metrics ───────────────────── */
 
+  console.log("hello");
   useEffect(() => {
     console.log("✅ NEXT_PUBLIC_API_BASE =", process.env.NEXT_PUBLIC_API_BASE);
     (async () => {
