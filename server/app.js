@@ -5,7 +5,7 @@ import jobsToCvsSentRouter from "./routes/jobsToCvsSent.js";
 import unfilledAJobsRouter from "./routes/unfilledAJobs.js";
 import candidateCallsRouter from "./routes/candidateCalls.js";
 import candidatesAddedRouter from "./routes/candidatesAdded.js";
-import jobsAddedRouter from "./routes/candidatesAdded.js";
+import jobsAddedRouter from "./routes/jobsAdded.js";
 // import { connectDB } from "./db/connection.js";
 
 dotenv.config();
