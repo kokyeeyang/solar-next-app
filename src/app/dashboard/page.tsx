@@ -607,6 +607,7 @@ export default function DashboardPage(): React.ReactElement {
   /* ───────────────────── Load filter options + metrics ───────────────────── */
 
   useEffect(() => {
+    console.log("✅ NEXT_PUBLIC_API_BASE =", process.env.NEXT_PUBLIC_API_BASE);
     (async () => {
       try {
         const isoToday = new Date().toISOString().slice(0, 10);
