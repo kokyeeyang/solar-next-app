@@ -1,6 +1,7 @@
 // server/etl/runAllETL.js
 // import { runCandidateCallsETL } from "./jobs/candidateCallsEtl.js";
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
+import { runCandidatesAddedETL } from "./jobs/candidatesAddedETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
 import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
 // import { runCvsSentETL } from "./jobs/cvssentETL.js";
@@ -10,7 +11,7 @@ import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted3
   await runCandidateCallsETL();
   await runCandidatesNotContacted30DaysETL();
   await runCandidatesNotContactedRowsETL();
-  // await runCvsSentETL();
-  // await runInterviewsETL();
+  await runCandidatesAddedETL();
+
   console.log("✅ All ETL jobs finished!");
 })();
