@@ -181,7 +181,7 @@ export default function DashboardPage(): React.ReactElement {
     string | null
   >(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://localhost:5000";
+  const NEXT_API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://localhost:5000";
   // metric cards
   const [metricData, setMetricData] = useState<MetricDataMap>({});
   const [loadingMetrics, setLoadingMetrics] = useState<string[]>([]);
@@ -260,7 +260,7 @@ export default function DashboardPage(): React.ReactElement {
         if (!hasFilters && token === "candidatecalls") {
           try {
             const localRes = await fetch(
-              `${API_BASE}/api/candidatecalls?datefrom=${start}&dateto=${end}`
+              `${NEXT_API_BASE}/api/candidatecalls?datefrom=${start}&dateto=${end}`
             );
             if (localRes.ok) {
               const localData = await localRes.json();
