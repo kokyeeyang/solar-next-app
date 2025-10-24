@@ -101,7 +101,7 @@ export async function runJobsAddedETL(startDate, endDate) {
 
     for (let i = 0; i < dates.length; i++) {
       const date = dates[i];
-      const row = await fetchMetricForDate("candidatesadded", date);
+      const row = await fetchMetricForDate("jobsadded", date);
       if (row) allRows.push(row);
 
       // 🚀 Insert every BATCH_SIZE days
