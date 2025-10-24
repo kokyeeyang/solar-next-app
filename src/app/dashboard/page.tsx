@@ -249,6 +249,28 @@ export default function DashboardPage(): React.ReactElement {
   ): Promise<Array<{ metric: string; data: TotalMetricResponse }>> => {
     const results = await Promise.all(
       metrics.map(async (metric) => {
+        const token = metric.toLowerCase().replace(/\s+/g, "");
+
+        // ✅ Only if no filters are active and metric === 'candidatecalls'
+        const hasFilters = Object.values(filters).some(
+          (arr) => Array.isArray(arr) && arr.length > 0
+        );
+
+        if (!hasFilters && token === "candidatecalls") {
+          try {
+            const localRes = await fetch(
+              `http://localhost:5000/api/candidatecalls?datefrom=${start}&dateto=${end}`
+            );
+            if (localRes.ok) {
+              const localData = await localRes.json();
+              return { metric: token, data: localData };
+            }
+          } catch (err) {
+            console.warn("Local DB fetch failed, falling back to API:", err);
+          }
+        }
+
+        // 🌀 Fall back to external API as before
         const q = {
           Function: joinOr(filters.Function, ","),
           dealboard: joinOr(filters.DealboardTeam, "|"),
@@ -426,10 +448,17 @@ export default function DashboardPage(): React.ReactElement {
     );
 
     const next: MetricDataMap = {};
+    // results.forEach(({ metric, data }) => {
+    //   next[metric] = {
+    //     total: typeof data.total === "number" ? data.total : 0,
+    //     target: typeof data.target === "number" ? data.target : 0,
+    //   };
+    // });
     results.forEach(({ metric, data }) => {
-      next[metric] = {
-        total: typeof data.total === "number" ? data.total : 0,
-        target: typeof data.target === "number" ? data.target : 0,
+      const key = metricToToken(metric);
+      next[key] = {
+        total: Number(data.total) || 0,
+        target: Number(data.target) || 0,
       };
     });
 

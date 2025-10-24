@@ -3,7 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import jobsToCvsSentRouter from "./routes/jobsToCvsSent.js";
 import unfilledAJobsRouter from "./routes/unfilledAJobs.js";
-import { connectDB } from "./db/connection.js";
+import candidateCallsRouter from "./routes/candidateCalls.js";
+// import { connectDB } from "./db/connection.js";
 
 dotenv.config();
 
@@ -12,11 +13,12 @@ app.use(cors());
 app.use(express.json());
 
 // Test database connection at startup
-await connectDB();
+// await connectDB();
 
 // API routes
 app.use("/api/jobs-to-cvs-sent", jobsToCvsSentRouter);
 app.use("/api/unfilled-a-jobs", unfilledAJobsRouter);
+app.use("/api/candidatecalls", candidateCallsRouter);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend running 🚀"));

@@ -1,5 +1,5 @@
 import express from "express";
-import { query } from "../db/connection.js";
+import { solarQuery } from "../db/connection.js";
 
 const router = express.Router();
 
@@ -61,7 +61,7 @@ router.get("/", async (req, res) => {
       GROUP BY JO.entity_id, JO.dateAdded_DT
     `;
 
-    const rows = await query(sql, params);
+    const rows = await solarQuery(sql, params);
     res.json(rows);
   } catch (err) {
     console.error("❌ SQL error details:", err);
@@ -126,7 +126,7 @@ router.get("/export", async (req, res) => {
       GROUP BY JO.entity_id, JO.dateAdded_DT
     `;
 
-    const rows = await query(sql, params);
+    const rows = await solarQuery(sql, params);
     const { Parser } = await import("json2csv");
     const parser = new Parser();
     const csv = parser.parse(rows);
@@ -198,7 +198,7 @@ router.get("/chart", async (req, res) => {
       ORDER BY ${groupByColumn}
     `;
 
-    const rows = await query(sql, params);
+    const rows = await solarQuery(sql, params);
 
     res.json(rows);
   } catch (err) {
