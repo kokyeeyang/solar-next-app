@@ -1,6 +1,7 @@
 // app/layout.tsx
 import "../../styles/globals.css";
 import ClientWrapper from "../../components/ClientWrapper"; // or adjust path
+import { ThemeProvider } from "@/context/ThemeContext";
 
 export const metadata = {
   title: "Tailwind Test",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ClientWrapper>{children}</ClientWrapper>
+        <ThemeProvider>
+          <ClientWrapper>{children}</ClientWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

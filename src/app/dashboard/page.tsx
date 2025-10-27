@@ -1,4 +1,3 @@
-// Filename: DashboardPage.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -21,6 +20,10 @@ import DropdownSettings from "../../../components/DropdownSettings";
 import ToggleModal from "../../../components/ToggleModal";
 import ExpandedModeModal from "../../../components/ExpandedModeModal";
 import CommonModal from "../../../components/CommonModal";
+
+import { useTheme } from "@/context/ThemeContext";
+
+import { MoonIcon, SunIcon } from "@heroicons/react/24/solid";
 
 import {
   Responsive as RGLResponsive,
@@ -108,6 +111,7 @@ const buildQuery = (base: Record<string, string>): string =>
 
 export default function DashboardPage(): React.ReactElement {
   const today = useMemo(() => new Date(), []);
+  const { theme, toggleTheme } = useTheme();
   const startOfYear = useMemo(() => new Date(today.getFullYear(), 0, 1), [today]);
 
   /* ─────────────── High-level selections / dates / layouts ─────────────── */
@@ -256,7 +260,6 @@ export default function DashboardPage(): React.ReactElement {
       metrics.map(async (metric) => {
         const token = metric.toLowerCase().replace(/\s+/g, "");
 
-        // ✅ Only if no filters are active and metric === 'candidatecalls'
         const hasFilters = Object.values(filters).some(
           (arr) => Array.isArray(arr) && arr.length > 0
         );
@@ -823,7 +826,7 @@ export default function DashboardPage(): React.ReactElement {
   /* ───────────────────────────────── Render ───────────────────────────────── */
 
   return (
-    <div className="bg-black min-h-screen text-white">
+    <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
       <Sidebar
         isMobileOpen={isMobileOpen}
         setMobileOpen={setMobileOpen}
@@ -847,6 +850,21 @@ export default function DashboardPage(): React.ReactElement {
             onChangeResizable={handleMetricChange}
             onChangeFixed={handleFixedMetricChange}
           />
+
+          <button
+            onClick={toggleTheme}
+            className="bg-gray-800 text-white px-3 py-2 rounded hover:bg-gray-700 flex items-center"
+          >
+            {theme === "dark" ? (
+              <>
+                <SunIcon className="w-5 h-5 mr-2" /> Light Mode
+              </>
+            ) : (
+              <>
+                <MoonIcon className="w-5 h-5 mr-2" /> Dark Mode
+              </>
+            )}
+          </button>
 
           <button
             onClick={() => setFilterOpen(true)}
