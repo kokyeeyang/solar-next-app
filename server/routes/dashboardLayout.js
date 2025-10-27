@@ -1,5 +1,5 @@
 import express from "express";
-import { reportingDB } from "../db/connection.js";
+import { railwayDB } from "../db/connection.js";
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ router.get("/:bullhornId", async (req, res) => {
   const { bullhornId } = req.params;
 
   try {
-    const [rows] = await reportingDB.query(
+    const [rows] = await railwayDB.query(
       "SELECT layout_json, selected_metrics, selected_fixed_metrics FROM dashboard_layouts WHERE bullhorn_id = ? LIMIT 1",
       [bullhornId]
     );
@@ -41,13 +41,13 @@ router.post("/:bullhornId", async (req, res) => {
   const { user_email, layout_json, selected_metrics, selected_fixed_metrics } = req.body;
 
   try {
-    const [existing] = await reportingDB.query(
+    const [existing] = await railwayDB.query(
       "SELECT id FROM dashboard_layouts WHERE bullhorn_id = ? LIMIT 1",
       [bullhornId]
     );
 
     if (existing.length) {
-      await reportingDB.query(
+      await railwayDB.query(
         "UPDATE dashboard_layouts SET layout_json = ?, selected_metrics = ?, selected_fixed_metrics = ?, updated_at = NOW() WHERE bullhorn_id = ?",
         [
           JSON.stringify(layout_json),
@@ -57,7 +57,7 @@ router.post("/:bullhornId", async (req, res) => {
         ]
       );
     } else {
-      await reportingDB.query(
+      await railwayDB.query(
         "INSERT INTO dashboard_layouts (user_email, bullhorn_id, layout_json, selected_metrics, selected_fixed_metrics, updated_at) VALUES (?, ?, ?, ?, ?, NOW())",
         [
           user_email,
