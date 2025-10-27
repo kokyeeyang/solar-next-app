@@ -83,6 +83,10 @@ type RowsResponse = {
 };
 
 const API_BASE = "https://so-api.azurewebsites.net/ingress/ajax/api";
+const CURRENT_USER = {
+  email: "yeeyang.kok@spencer-ogden.com",
+  bullhornId: 2088577,
+};
 
 /* ───────────────────────────────── Helpers ────────────────────────────────── */
 
@@ -606,7 +610,6 @@ export default function DashboardPage(): React.ReactElement {
 
   /* ───────────────────── Load filter options + metrics ───────────────────── */
 
-  console.log("hello");
   useEffect(() => {
     console.log("✅ NEXT_PUBLIC_API_BASE =", process.env.NEXT_PUBLIC_API_BASE);
     (async () => {
@@ -679,6 +682,29 @@ export default function DashboardPage(): React.ReactElement {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange, isAssociatedModeOn, isExpandedModeOn, activeFilters]);
+
+  useEffect(() => {
+  (async () => {
+    try {
+      const res = await fetch(
+        `${NEXT_PUBLIC_API_BASE}/api/dashboard-layout/${CURRENT_USER.bullhornId}`
+      );
+      const data = await res.json();
+
+      if (data.layout_json) {
+        console.log("🧩 Restoring saved layout for", CURRENT_USER.email);
+        setLayouts(data.layout_json);
+        setSelectedMetrics(data.selected_metrics);
+        setSelectedFixedMetrics(data.selected_fixed_metrics);
+      } else {
+        console.log("ℹ️ No saved layout found — using default.");
+      }
+    } catch (err) {
+      console.error("Failed to load saved layout:", err);
+    }
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   /* ───────────────────────────── Render helpers ───────────────────────────── */
 
@@ -827,6 +853,35 @@ export default function DashboardPage(): React.ReactElement {
             className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700"
           >
             Filters
+          </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(
+                  `${NEXT_PUBLIC_API_BASE}/api/dashboard-layout/${CURRENT_USER.bullhornId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      user_email: CURRENT_USER.email,
+                      layout_json: layouts,
+                      selected_metrics: selectedMetrics,
+                      selected_fixed_metrics: selectedFixedMetrics,
+                    }),
+                  }
+                );
+                const data = await res.json();
+                if (data.success) alert("✅ Layout saved successfully!");
+                else alert("⚠️ Failed to save layout");
+              } catch (err) {
+                console.error("Save layout error:", err);
+                alert("❌ Error saving layout");
+              }
+            }}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          >
+            Save Layout
           </button>
 
           {/* Date picker with strict, explicit onChange */}

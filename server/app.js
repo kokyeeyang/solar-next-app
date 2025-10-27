@@ -6,6 +6,7 @@ import unfilledAJobsRouter from "./routes/unfilledAJobs.js";
 import candidateCallsRouter from "./routes/candidateCalls.js";
 import candidatesAddedRouter from "./routes/candidatesAdded.js";
 import jobsAddedRouter from "./routes/jobsAdded.js";
+import dashboardLayoutRouter from "./routes/dashboardLayout.js";
 // import { connectDB } from "./db/connection.js";
 
 dotenv.config();
@@ -23,6 +24,7 @@ app.use("/api/unfilled-a-jobs", unfilledAJobsRouter);
 app.use("/api/candidatecalls", candidateCallsRouter);
 app.use("/api/candidatesadded", candidatesAddedRouter);
 app.use("/api/jobsadded", jobsAddedRouter);
+app.use("/api/dashboard-layout", dashboardLayoutRouter);
 
 // Healthcheck
 app.get("/", (req, res) => res.send("Backend running 🚀"));
