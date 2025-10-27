@@ -3,6 +3,17 @@ import { railwayDB } from "../db/connection.js";
 
 const router = express.Router();
 
+const parseMaybeJson = (value, fallback) => {
+  if (!value) return fallback;
+  if (typeof value === "object") return value; // already parsed by MySQL
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.warn("⚠️ Invalid JSON detected:", err);
+    return fallback;
+  }
+};
+
 /**
  * 📥 GET  /api/dashboard-layout/:bullhornId
  * Load dashboard layout for a given user
@@ -22,9 +33,9 @@ router.get("/:bullhornId", async (req, res) => {
 
     const row = rows[0];
     res.json({
-      layout_json: JSON.parse(row.layout_json || "{}"),
-      selected_metrics: JSON.parse(row.selected_metrics || "[]"),
-      selected_fixed_metrics: JSON.parse(row.selected_fixed_metrics || "[]"),
+      layout_json: parseMaybeJson(row.layout_json || "{}"),
+      selected_metrics: parseMaybeJson(row.selected_metrics || "[]"),
+      selected_fixed_metrics: parseMaybeJson(row.selected_fixed_metrics || "[]"),
     });
   } catch (err) {
     console.error("❌ Error loading layout:", err);
