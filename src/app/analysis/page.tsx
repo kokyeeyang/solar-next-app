@@ -69,7 +69,7 @@ export default function AnalysisPage() {
       try {
         setLoading(true);
         const baseUrl =
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+          process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
         const res = await fetch(
           `${baseUrl}/api/jobs-to-cvs-sent/chart?groupBy=${groupBy}`
