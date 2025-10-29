@@ -32,6 +32,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     root.classList.add(theme);
   }, [theme]);
 
+  console.log("ThemeContext current theme:", theme);
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}

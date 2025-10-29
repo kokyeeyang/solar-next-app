@@ -13,14 +13,8 @@ import {
 } from "recharts";
 
 import Sidebar from "../../../components/Sidebar";
-import DateRangePicker from "../../../components/DatePicker";
-import FilterModal from "../../../components/FilterModal";
-import DropdownSettings from "../../../components/DropdownSettings";
-import ToggleModal from "../../../components/ToggleModal";
-import ExpandedModeModal from "../../../components/ExpandedModeModal";
-import ExportDropdown from "../../../components/ExportDropdown";
-
-import { Bars3Icon } from "@heroicons/react/24/solid";
+import TopBar from "../../../components/TopBar";
+import { useTheme } from "@/context/ThemeContext";
 
 interface ChartData {
   group: string;
@@ -41,6 +35,7 @@ export default function AnalysisPage() {
 
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([startOfYear, today]);
   const [isFilterOpen, setFilterOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const [isAssociatedModalOpen, setIsAssociatedModalOpen] = useState(false);
   const [isAssociatedModeOn, setIsAssociatedModeOn] = useState(false);
   const [isExpandedModalOpen, setIsExpandedModalOpen] = useState(false);
@@ -161,61 +156,22 @@ export default function AnalysisPage() {
   }, [dateRange, isAssociatedModeOn, isExpandedModeOn, activeFilters]);
 
   return (
-    <div className="flex bg-black min-h-screen text-white">
+    <div className="flex min-h-screen bg-white text-black dark:bg-black dark:text-white transition-colors duration-500">
       {/* ✅ Sidebar stays fixed on the left */}
       <Sidebar isMobileOpen={isMobileOpen} setMobileOpen={setMobileOpen}  isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
       {/* ✅ Main content is shifted to the right */}
       <main className="flex-1 ml-64 p-6 transition-all duration-300 lg:ml-64 md:ml-0">
-        {/* Top Controls */}
-        <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 text-white rounded bg-gray-800 hover:bg-gray-700"
-          >
-            <Bars3Icon className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => setFilterOpen(true)}
-            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700"
-          >
-            Filters
-          </button>
-          <DateRangePicker onChange={setDateRange} />
-        </div>
-
+        <TopBar
+          onOpenSidebar={() => setMobileOpen(true)}
+          showBurger
+          onDateChange={setDateRange}
+          showDatePicker
+          showThemeToggle
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
         {/* Settings */}
-        <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-          <DropdownSettings
-            onAssociatedModeClick={() => setIsAssociatedModalOpen(true)}
-            onExpandedModeClick={() => setIsExpandedModalOpen(true)}
-          />
-        </div>
-        <div className="flex justify-between items-center mb-6">
-          <ExportDropdown />
-        </div>
-        {/* Filter / Modals */}
-        <FilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setFilterOpen(false)}
-          options={filterOptions}
-          onApply={async (filters) => {
-            console.log("Filters applied:", filters);
-          }}
-        />
-        <ToggleModal
-          isOpen={isAssociatedModalOpen}
-          onClose={() => setIsAssociatedModalOpen(false)}
-          isOn={isAssociatedModeOn}
-          toggleSwitch={() => setIsAssociatedModeOn((prev) => !prev)}
-        />
-        <ExpandedModeModal
-          isOpen={isExpandedModalOpen}
-          onClose={() => setIsExpandedModalOpen(false)}
-          isOn={isExpandedModeOn}
-          toggleSwitch={() => setIsExpandedModeOn((prev) => !prev)}
-        />
-
         {/* Title */}
         <h1 className="text-2xl font-bold mb-6">
           📊 Job Sendouts by {groupBy === "team" ? "Team" : "Region"}
