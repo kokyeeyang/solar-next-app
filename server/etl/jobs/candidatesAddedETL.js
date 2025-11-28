@@ -1,11 +1,9 @@
 // server/etl/jobs/candidatesAddedETL.js
 import fetch from "node-fetch";
-import { reportingDB } from "../../db/connection.js";
+import { publishMetricEvent } from "../../kafka/producers/metricProducer.js";
 
 /**
  * 📆 Generate a date range array (inclusive)
- * - If startDate and endDate are provided, use them.
- * - Otherwise defaults to Jan 1 of current year → today.
  */
 function getDateRange(startDate, endDate) {
   const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1);
@@ -21,7 +19,7 @@ function getDateRange(startDate, endDate) {
 }
 
 /**
- * 📡 Fetch metric data for a single date (datefrom == dateto)
+ * 📡 Fetch metric for a single date
  */
 async function fetchMetricForDate(metric, date) {
   const url = `https://so-api.azurewebsites.net/ingress/ajax/api?metric=${metric}&datefrom=${date}&dateto=${date}&currency=MYR&output=total`;
@@ -32,7 +30,6 @@ async function fetchMetricForDate(metric, date) {
 
     if (!res.ok) {
       console.error(`❌ API error ${res.status} for ${metric} on ${date}`);
-      console.error("Response:", text.slice(0, 200));
       return null;
     }
 
@@ -42,6 +39,7 @@ async function fetchMetricForDate(metric, date) {
       metric_date: date,
       metric_value: data.total || 0,
       target_value: data.target || null,
+      currency: "MYR",
     };
   } catch (err) {
     console.error(`❌ Failed to fetch ${metric} on ${date}:`, err.message);
@@ -50,74 +48,25 @@ async function fetchMetricForDate(metric, date) {
 }
 
 /**
- * 🗄️ Insert a batch of rows into MySQL
- */
-async function insertMetricsBatch(conn, rows) {
-  if (rows.length === 0) return;
-
-  const values = rows.map(r => [
-    r.metric_name,
-    r.metric_date,
-    r.metric_value,
-    r.target_value,
-    "MYR",
-  ]);
-
-  await conn.query(
-    `
-    INSERT INTO daily_metrics (
-      metric_name,
-      metric_date,
-      metric_value,
-      target_value,
-      currency
-    )
-    VALUES ?
-    ON DUPLICATE KEY UPDATE
-      metric_value = VALUES(metric_value),
-      target_value = VALUES(target_value)
-    `,
-    [values]
-  );
-}
-
-/**
- * 🚀 Run ETL for candidatesadded metric (daily granularity)
- * @param {string} [startDate] - optional YYYY-MM-DD start date
- * @param {string} [endDate] - optional YYYY-MM-DD end date
+ * 🚀 Kafka-only ETL for candidatesadded metric
  */
 export async function runCandidatesAddedETL(startDate, endDate) {
   console.log(`📊 Starting candidatesadded ETL job${startDate && endDate ? ` for ${startDate} → ${endDate}` : ""}...`);
-  const conn = await reportingDB.getConnection();
 
   try {
-    await conn.beginTransaction();
-
     const dates = getDateRange(startDate, endDate);
     console.log(`📆 Processing ${dates.length} days from ${dates[0]} to ${dates[dates.length - 1]}...`);
 
-    const BATCH_SIZE = 100; // API + DB-friendly chunk size
-    const allRows = [];
-
-    for (let i = 0; i < dates.length; i++) {
-      const date = dates[i];
+    for (const date of dates) {
       const row = await fetchMetricForDate("candidatesadded", date);
-      if (row) allRows.push(row);
+      if (!row) continue; // important safety check
 
-      // 🚀 Insert every BATCH_SIZE days
-      if (allRows.length >= BATCH_SIZE || i === dates.length - 1) {
-        await insertMetricsBatch(conn, allRows);
-        console.log(`✅ Inserted ${allRows.length} rows so far...`);
-        allRows.length = 0;
-      }
+      await publishMetricEvent(row);
+      console.log(`📤 Published Kafka event → ${row.metric_name} @ ${row.metric_date}`);
     }
 
-    await conn.commit();
     console.log("🎉 candidatesadded ETL completed successfully!");
   } catch (err) {
-    await conn.rollback();
     console.error("❌ ETL failed:", err);
-  } finally {
-    conn.release();
   }
 }

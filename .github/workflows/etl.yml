@@ -2,44 +2,14 @@ name: Daily ETL Job
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # 🕑 Every day at 2 AM UTC (10 AM MYT)
-  workflow_dispatch:      # 👈 Allows you to trigger historical ETL manually too
+    - cron: "*/15 * * * *"   # 🕑 Every 15 minutes
+  workflow_dispatch:
 
 jobs:
-  # 🗄️ 1. Historical Backfill ETL (manual trigger only)
-  historical-etl:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 180  # 🕒 Longer time for heavy backfill
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: 📦 Install backend dependencies
-        working-directory: server
-        run: npm ci
-
-      - name: 🗄️ Run Historical ETL
-        working-directory: server
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          NODE_ENV: production
-        run: node etl/runAllHistoricalETL.js
-
-  # 📈 2. Daily Incremental ETL (runs automatically)
   daily-etl:
-    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
@@ -53,13 +23,11 @@ jobs:
         working-directory: server
         run: npm ci
 
-      - name: 🗄️ Run Daily ETL
+      - name: 🗄️ Run Daily ETL (Kafka Only)
         working-directory: server
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PORT: ${{ secrets.DB_PORT }}
+          KAFKA_BROKER: ${{ secrets.KAFKA_BROKER }}
+          KAFKA_USERNAME: ${{ secrets.KAFKA_USERNAME }}
+          KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
           NODE_ENV: production
         run: node etl/runAllETL.js

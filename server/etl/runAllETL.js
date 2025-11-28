@@ -4,8 +4,11 @@ import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesAddedETL } from "./jobs/candidatesAddedETL.js";
 import { runJobsAddedETL } from "./jobs/jobsAddedETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
-import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
+// import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
+import { initMetricProducer } from "../kafka/producers/metricProducer.js";
 
+import dotenv from "dotenv";
+dotenv.config({ path: "../.env" });
 // 🧩 Helper: format today's date as YYYY-MM-DD
 function todayISO() {
   const d = new Date();
@@ -13,6 +16,7 @@ function todayISO() {
 }
 
 (async () => {
+  await initMetricProducer();
   const today = todayISO();
   console.log(`🚀 Starting daily ETL for ${today}`);
 

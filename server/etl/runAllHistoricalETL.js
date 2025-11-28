@@ -1,12 +1,16 @@
 // server/etl/runAllHistoricalETL.js
-import { reportingDB } from "../db/connection.js"; // ✅ <-- Add this import
+import dotenv from "dotenv";
+dotenv.config({ path: "../.env" });
+
+import { initMetricProducer } from "../kafka/producers/metricProducer.js";
+
 import { runCandidateCallsETL } from "./jobs/candidateCallsETL.js";
 import { runCandidatesAddedETL } from "./jobs/candidatesAddedETL.js";
 import { runJobsAddedETL } from "./jobs/jobsAddedETL.js";
 import { runCandidatesNotContacted30DaysETL } from "./jobs/candidatesNotContacted30DaysETL.js";
 import { runCandidatesNotContactedRowsETL } from "./jobs/candidatesNotContacted30DaysRowsETL.js";
 
-/** Format a Date as YYYY-MM-DD in local time (avoids UTC off-by-one) */
+/** Format YYYY-MM-DD in local time */
 function toLocalISODate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -14,14 +18,11 @@ function toLocalISODate(d) {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Split Jan 1 → today into monthly or quarterly ranges (inclusive)
- * @param {"monthly"|"quarterly"} interval
- */
+/** Split Jan 1 → today into monthly or quarterly ranges */
 function getDynamicDateRanges(interval = "quarterly") {
   const ranges = [];
-  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
   const today = new Date();
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
 
   let currentStart = new Date(startOfYear);
 
@@ -30,22 +31,19 @@ function getDynamicDateRanges(interval = "quarterly") {
 
     if (interval === "monthly") {
       currentEnd.setMonth(currentEnd.getMonth() + 1);
-      currentEnd.setDate(0);                 // last day of that month
-    } else if (interval === "quarterly") {
-      currentEnd.setMonth(currentEnd.getMonth() + 3);
-      currentEnd.setDate(0);                 // last day of that quarter
+      currentEnd.setDate(0);
     } else {
-      throw new Error(`Unknown interval: ${interval}`);
+      currentEnd.setMonth(currentEnd.getMonth() + 3);
+      currentEnd.setDate(0);
     }
 
-    if (currentEnd > today) currentEnd = today; // clamp
+    if (currentEnd > today) currentEnd = today;
 
     ranges.push({
       start: toLocalISODate(currentStart),
       end: toLocalISODate(currentEnd),
     });
 
-    // move to next day after currentEnd
     currentStart = new Date(currentEnd);
     currentStart.setDate(currentStart.getDate() + 1);
   }
@@ -54,34 +52,38 @@ function getDynamicDateRanges(interval = "quarterly") {
 }
 
 async function runBackfillETL() {
-  const INTERVAL = process.env.ETL_INTERVAL || "monthly"; // "monthly" or "quarterly"
-  console.log(`📜 Historical backfill for candidatecalls (${INTERVAL})`);
+  try {
+    console.log("🚀 Initializing Kafka producer...");
+    await initMetricProducer();
 
-  const ranges = getDynamicDateRanges(INTERVAL);
-  console.log("📆 Ranges:", ranges);
+    const INTERVAL = process.env.ETL_INTERVAL || "monthly";
+    console.log(`📜 Historical backfill interval: ${INTERVAL}`);
 
-  for (const { start, end } of ranges) {
-    console.log(`🚀 Running candidatecalls ETL for ${start} → ${end}`);
-    await runCandidateCallsETL(start, end); // ✅ supports range now
-    await runCandidatesAddedETL(start, end);
-    await runJobsAddedETL(start, end);
+    const ranges = getDynamicDateRanges(INTERVAL);
+    console.log("📆 Ranges:", ranges);
+
+    for (const { start, end } of ranges) {
+      console.log(`📤 Backfilling ${start} → ${end}`);
+
+      await runCandidateCallsETL(start, end);
+      await runCandidatesAddedETL(start, end);
+      await runJobsAddedETL(start, end);
+
+      // throttle between ranges to avoid API/Kafka overload
+      await new Promise((res) => setTimeout(res, 500));
+    }
+
+    // one-shot metrics
+    await runCandidatesNotContacted30DaysETL();
+    await runCandidatesNotContactedRowsETL();
+
+    console.log("🎉 All historical ETL jobs completed successfully.");
+    process.exit(0);
+
+  } catch (err) {
+    console.error("❌ Historical ETL failed:", err);
+    process.exit(1);
   }
-
-  // 🗄️ Insert the one-row metric for candidatesNotContacted30Days
-  await runCandidatesNotContacted30DaysETL();
-  await runCandidatesNotContactedRowsETL();
-
-  // ✅ Gracefully close DB connection pool if possible
-  if (reportingDB && typeof reportingDB.end === "function") {
-    await reportingDB.end();
-    console.log("🔌 MySQL pool closed.");
-  }
-
-  console.log("🎉 All historical ETL jobs completed successfully.");
-  process.exit(0); // ✅ Exit cleanly to avoid hanging in GitHub Actions
 }
 
-runBackfillETL().catch((err) => {
-  console.error("❌ Backfill ETL failed:", err);
-  process.exit(1);
-});
+runBackfillETL();

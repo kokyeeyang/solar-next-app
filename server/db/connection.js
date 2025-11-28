@@ -2,7 +2,8 @@
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 
-dotenv.config();
+// dotenv.config();
+dotenv.config({ path: "../.env" });
 
 /**
  * 🗄️ MySQL connection pool
@@ -10,6 +11,12 @@ dotenv.config();
  * - Automatically enables SSL if connecting to Railway
  * - Supports getConnection(), query(), transactions, etc.
  */
+
+console.log("CONNECTION CONFIG:", {
+  host: process.env.DB_RAILWAY_HOST,
+  user: process.env.DB_RAILWAY_USER,
+  pass: process.env.DB_RAILWAY_PASS
+});
 export const reportingDB = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
