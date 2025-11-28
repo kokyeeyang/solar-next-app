@@ -33,8 +33,8 @@ function todayISO() {
     console.log(`⏳ Running Candidates Not Contacted (30 Days) for ${today}`);
     await runCandidatesNotContacted30DaysETL(today, today);
 
-    console.log(`📋 Running Candidates Not Contacted (Rows) for ${today}`);
-    await runCandidatesNotContactedRowsETL(today, today);
+    // console.log(`📋 Running Candidates Not Contacted (Rows) for ${today}`);
+    // await runCandidatesNotContactedRowsETL(today, today);
 
     console.log("✅ All daily ETL jobs completed successfully!");
   } catch (err) {
