@@ -1,16 +1,5 @@
 // server/kafka/producer.js
-import { Kafka } from "kafkajs";
-
-const kafka = new Kafka({
-  clientId: "etl-service",
-  brokers: [process.env.KAFKA_BROKER],
-  ssl: true,
-  sasl: {
-    mechanism: "plain",
-    username: process.env.KAFKA_USERNAME,
-    password: process.env.KAFKA_PASSWORD
-  }
-});
+import { kafka } from "./kafkaClient.js";
 
 const producer = kafka.producer();
 let connected = false;

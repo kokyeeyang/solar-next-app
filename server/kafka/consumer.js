@@ -1,24 +1,15 @@
 // server/kafka/consumers/metricConsumer.js
-import { Kafka } from "kafkajs";
+import { kafka } from "../kafkaClient.js";
 import { reportingDB } from "../../db/connection.js";
 
-const kafka = new Kafka({
-  clientId: "etl-mysql-writer",
-  brokers: [process.env.KAFKA_BROKER],
-  ssl: true,
-  sasl: {
-    mechanism: "plain",
-    username: process.env.KAFKA_USERNAME,
-    password: process.env.KAFKA_PASSWORD,
-  },
+const consumer = kafka.consumer({
+  groupId: process.env.KAFKA_GROUP_ID || "etl-mysql-writer-group",
 });
-
-const consumer = kafka.consumer({ groupId: "etl-mysql-writer-group" });
 
 export async function initMetricConsumer() {
   await consumer.connect();
   await consumer.subscribe({
-    topic: "etl.daily_metrics",
+    topic: process.env.KAFKA_METRICS_TOPIC || "etl.daily_metrics",
     fromBeginning: false,
   });
 
@@ -28,15 +19,6 @@ export async function initMetricConsumer() {
     eachMessage: async ({ message }) => {
       try {
         const event = JSON.parse(message.value.toString());
-
-        // Expected event shape:
-        // {
-        //   metric_name: "candidatecalls",
-        //   metric_date: "2025-11-28",
-        //   metric_value: 12,
-        //   target_value: 15,
-        //   currency: "MYR"
-        // }
 
         await reportingDB.query(
           `
